@@ -39,6 +39,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 
 #ifdef WIN32
 #include <windows.h>
@@ -225,6 +227,26 @@ static void handler_fork(const char **args)
     }
 }
 
+static void handler_ropgadget(const char **args)
+{
+    int fildes;
+    int status;
+    struct stat buffer;
+    unsigned char* address;
+
+    if ((fildes = open(args[0], O_RDONLY)) == -1) {
+        fprintf(stderr, "Cannot open file.\n");
+        return;
+    }
+
+    status = fstat(fildes, &buffer);
+    address = mmap(0, buffer.st_size, PROT_READ, MAP_PRIVATE, fildes, 0);
+
+    crax_collect_ropgadgets(address, buffer.st_size, args[0]);
+
+    close(fildes);
+}
+
 #define COMMAND(c, args, desc) { #c, handler_##c, args, desc }
 
 static cmd_t s_commands[] = {
@@ -235,6 +257,7 @@ static cmd_t s_commands[] = {
     COMMAND(symbfile, 1, "Makes the specified file concolic. The file should be stored in a ramdisk."),
     COMMAND(exemplify, 0, "Read from stdin and write an example to stdout"),
     COMMAND(fork, 1, "Enable/disable forking"),
+    COMMAND(ropgadget, 1, "Map a file into memory for rop gadget collecting"),
     { NULL, NULL, 0, NULL }
 };
 

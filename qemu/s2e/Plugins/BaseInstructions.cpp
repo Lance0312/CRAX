@@ -469,6 +469,37 @@ void BaseInstructions::assume(S2EExecutionState *state)
 }
 #endif
 
+void BaseInstructions::collectROPGadgets(S2EExecutionState *state)
+{
+    target_ulong address, size, name;
+    bool ok = true;
+
+    ok &= state->readCpuRegisterConcrete(PARAM0,
+                                         &address, sizeof address);
+    ok &= state->readCpuRegisterConcrete(PARAM1,
+                                         &size, sizeof size);
+    ok &= state->readCpuRegisterConcrete(PARAM2,
+                                         &name, sizeof name);
+
+    if(!ok) {
+        s2e()->getWarningsStream(state)
+            << "ERROR: symbolic argument was passed to s2e_op "
+               " insert_symbolic opcode\n";
+        return;
+    }
+
+    std::string nameStr = "unnamed";
+    if(name && !state->readString(name, nameStr)) {
+        s2e()->getWarningsStream(state)
+                << "Error reading string from the guest\n";
+    }
+
+    uint8_t byte = 0;
+    state->readMemoryConcrete8(address, &byte);
+    s2e()->getMessagesStream(state)
+        << hexval(byte) << " " << size << " " << nameStr << "\n";
+}
+
 
 /** Handle s2e_op instruction. Instructions:
 
@@ -558,6 +589,11 @@ void BaseInstructions::handleBuiltInOps(S2EExecutionState* state, uint64_t opcod
 
         case 0x11: { /* s2e_make_concolic */
             makeSymbolic(state, true);
+            break;
+        }
+
+        case 0x12: { /* crax_collect_ropgadgets */
+            collectROPGadgets(state);
             break;
         }
 

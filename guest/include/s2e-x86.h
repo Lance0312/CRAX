@@ -523,3 +523,26 @@ static inline int s2e_invoke_plugin(const char *pluginName, void *data, uint32_t
 
     return result;
 }
+
+/** Send a memory mapped address to host for rop gadgets collecting. */
+static inline void crax_collect_ropgadgets(void *address, int size, const char *name)
+{
+    __s2e_touch_string(name);
+    __s2e_touch_buffer(address, size);
+    __asm__ __volatile__(
+#ifdef __x86_64__
+        "push %%rbx\n"
+        "mov %%rdx, %%rbx\n"
+#else
+        "pushl %%ebx\n"
+        "movl %%edx, %%ebx\n"
+#endif
+        S2E_INSTRUCTION_SIMPLE(12)
+#ifdef __x86_64__
+        "pop %%rbx\n"
+#else
+        "popl %%ebx\n"
+#endif
+        : : "a" (address), "d" (size), "c" (name) : "memory"
+    );
+}
